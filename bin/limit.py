@@ -16,7 +16,8 @@ KILLED_MESSAGE = """HARD TIMEOUT: command killed after {}s. Work through these i
    command line, never pkill -f. If a kill is denied, stop and tell the user the PID and what it is doing.
 2. Think hard about how to do this task in less time. Nearly every time this message appears, the task was accidentally
    run in a slow way: a build invoked incorrectly, an infinite loop or deadlock, scanning more data than intended. Do not
-   rerun the same command.
+   rerun the same command. Do not get around the limit by moving the work to the background or by chaining shorter
+   commands: the whole task has to fit, not each piece, so splitting slow work into chunks does not count as a speedup.
 3. If this task is certainly what the user wants and it has not been profiled yet, run a subset of it under a profiler
    such as perf or py-spy to find speedups and performance regressions, then fix them. A 2% speedup is not worth the
    effort, but 10x or larger speedups are often available.

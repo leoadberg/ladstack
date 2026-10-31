@@ -101,6 +101,7 @@ class Limit(unittest.TestCase):
             self.assertEqual(result.returncode, 124)
             self.assertIn(b"HARD TIMEOUT: command killed after 1s", result.stdout)
             self.assertIn(b"long: grant", result.stdout)
+            self.assertIn(b"chaining shorter", result.stdout)
             self.assertLess(time.time() - started, 2)
             time.sleep(1.5)
             self.assertFalse(marker.exists())
