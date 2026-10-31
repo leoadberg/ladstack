@@ -48,34 +48,33 @@ class TimeoutHook(Base):
         command = """echo "a'b" 'c"d' $HOME"""
         self.assertEqual(shlex.split(self.wrap(command)["command"])[3], command)
 
-    def test_grant_extends_only_matching_commands(self):
-        out = self.hook("grant.py", {"session_id": "s", "prompt": "long:10m:sleep please run it"})
+    def test_grant_covers_every_command(self):
+        out = self.hook("grant.py", {"session_id": "s", "prompt": "long:10m please run it"})
         self.assertIn(b"600s", out.stdout)
         self.assertEqual(self.limit_of("sleep 90"), 600)
-        self.assertEqual(self.limit_of("make all"), 60)
-        self.assertEqual(self.limit_of("sleep 90; sleep 90"), 60)
-        self.assertEqual(self.limit_of("xsleep 90"), 60)
+        self.assertEqual(self.limit_of("cd x && make; make test"), 600)
+
+    def test_grant_ends_at_next_message(self):
+        self.hook("grant.py", {"session_id": "s", "prompt": "long:10m"})
+        self.hook("grant.py", {"session_id": "s", "prompt": "thanks, now the next thing"})
+        self.assertEqual(self.limit_of("sleep 90"), 60)
 
     def test_grant_keeps_background(self):
-        self.hook("grant.py", {"session_id": "s", "prompt": "long:2m:sleep"})
+        self.hook("grant.py", {"session_id": "s", "prompt": "long:2m"})
         self.assertTrue(self.wrap("sleep 90", run_in_background=True)["run_in_background"])
 
-    def test_grant_is_per_session_and_expires(self):
-        self.hook("grant.py", {"session_id": "other", "prompt": "long:10m:sleep"})
+    def test_grant_is_per_session(self):
+        self.hook("grant.py", {"session_id": "other", "prompt": "long:10m"})
         self.assertEqual(self.limit_of("sleep 90"), 60)
-        path = self.home / ".claude" / "grants" / "s.json"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps([{"pattern": "sleep", "limit": 600, "expires": time.time() - 1}]))
-        self.assertEqual(self.limit_of("sleep 90"), 60)
+
+    def test_grant_is_capped(self):
+        self.hook("grant.py", {"session_id": "s", "prompt": "long:9h"})
+        self.assertEqual(self.limit_of("sleep 90"), 3600)
 
     def test_no_grant_in_ordinary_message(self):
-        self.hook("grant.py", {"session_id": "s", "prompt": "belong:10m:sleep"})
-        self.assertFalse((self.home / ".claude" / "grants" / "s.json").exists())
-
-    def test_bad_regex_grants_nothing(self):
-        out = self.hook("grant.py", {"session_id": "s", "prompt": "long:10m:("})
-        self.assertEqual(out.returncode, 0)
-        self.assertIn(b"NOT created", out.stdout)
+        for prompt in ("belong:10m", "long:10m:make", "long:10"):
+            self.hook("grant.py", {"session_id": "s", "prompt": prompt})
+            self.assertFalse((self.home / ".claude" / "grants" / "s.json").exists())
 
     def test_hook_failure_blocks(self):
         path = self.home / ".claude" / "grants" / "s.json"
