@@ -1,12 +1,20 @@
 #!/usr/bin/env python3
-"""PreToolUse on Bash: run every command under a hard limit, 60 s unless the user granted more."""
+"""PreToolUse on Bash: run every command under a hard limit, 60 s unless the user granted more.
+
+Without a grant, nohup is refused: it lets a job outlive the limit."""
 import json
+import re
 import shlex
 import sys
 from pathlib import Path
 
 DEFAULT_LIMIT = 60
 LIMIT = Path(__file__).resolve().parent.parent / "bin" / "limit.py"
+# nohup where a command starts, here or inside a quoted remote command (ssh host 'nohup ...')
+NOHUP = re.compile(r"""(?:^|[;&|(`'"\n]|\$\()\s*(?:\w+=\S*\s+)*(?:sudo\s+|env\s+)*nohup(?:\s|$)""")
+NOHUP_MESSAGE = """nohup is blocked: it lets a job outlive the time limit. Run the command in the foreground. If it
+cannot finish within the limit, profile it and make it faster, or ask the user to re-attempt with a long: grant
+in their message (for example long:10m)."""
 
 
 def granted_limit(session_id):
@@ -20,6 +28,9 @@ try:
     command = tool_input["command"]
     limit = granted_limit(event["session_id"])
     if limit is None:
+        if NOHUP.search(command):
+            print(NOHUP_MESSAGE, file=sys.stderr)
+            sys.exit(2)
         limit = DEFAULT_LIMIT
         tool_input.pop("run_in_background", None)
     tool_input["timeout"] = (limit + 10) * 1000
