@@ -39,10 +39,10 @@ class Base(unittest.TestCase):
 class TimeoutHook(Base):
     def test_default_limit_and_no_background(self):
         updated = self.wrap("sleep 90", run_in_background=True, description="d")
-        self.assertEqual(shlex.split(updated["command"])[2:], ["60", "sleep 90"])
+        self.assertEqual(shlex.split(updated["command"])[2:], ["10", "sleep 90"])
         self.assertNotIn("run_in_background", updated)
         self.assertEqual(updated["description"], "d")
-        self.assertEqual(updated["timeout"], 70000)
+        self.assertEqual(updated["timeout"], 20000)
 
     def test_quoting_survives(self):
         command = """echo "a'b" 'c"d' $HOME"""
@@ -57,7 +57,7 @@ class TimeoutHook(Base):
     def test_grant_ends_at_next_message(self):
         self.hook("grant.py", {"session_id": "s", "prompt": "long:10m"})
         self.hook("grant.py", {"session_id": "s", "prompt": "thanks, now the next thing"})
-        self.assertEqual(self.limit_of("sleep 90"), 60)
+        self.assertEqual(self.limit_of("sleep 90"), 10)
 
     def test_grant_keeps_background(self):
         self.hook("grant.py", {"session_id": "s", "prompt": "long:2m"})
@@ -65,7 +65,7 @@ class TimeoutHook(Base):
 
     def test_grant_is_per_session(self):
         self.hook("grant.py", {"session_id": "other", "prompt": "long:10m"})
-        self.assertEqual(self.limit_of("sleep 90"), 60)
+        self.assertEqual(self.limit_of("sleep 90"), 10)
 
     def test_grant_is_capped(self):
         self.hook("grant.py", {"session_id": "s", "prompt": "long:9h"})
@@ -85,7 +85,7 @@ class TimeoutHook(Base):
 
     def test_nohup_mentions_pass(self):
         for command in ("man nohup", "grep -c nohup log", "echo nohupx", "ls nohup.out"):
-            self.assertEqual(self.limit_of(command), 60, command)
+            self.assertEqual(self.limit_of(command), 10, command)
 
     def test_nohup_allowed_with_grant(self):
         self.hook("grant.py", {"session_id": "s", "prompt": "long:10m"})

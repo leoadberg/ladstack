@@ -12,7 +12,7 @@ afterwards.
 
 ## Hard timeout
 
-Every Bash command Claude runs is killed at 60 seconds, along with its process group, and Claude is told how to clean up.
+Every Bash command Claude runs is killed at 10 seconds, along with its process group, and Claude is told how to clean up.
 The limit does not reach through ssh: put a `timeout` in the remote command too.
 
 `nohup` is refused outright, here or inside an ssh command, since it lets a job outlive the limit.

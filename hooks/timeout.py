@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PreToolUse on Bash: run every command under a hard limit, 60 s unless the user granted more.
+"""PreToolUse on Bash: run every command under a hard limit, 10 s unless the user granted more.
 
 Without a grant, nohup is refused: it lets a job outlive the limit."""
 import json
@@ -8,7 +8,7 @@ import shlex
 import sys
 from pathlib import Path
 
-DEFAULT_LIMIT = 60
+DEFAULT_LIMIT = 10
 LIMIT = Path(__file__).resolve().parent.parent / "bin" / "limit.py"
 # nohup where a command starts, here or inside a quoted remote command (ssh host 'nohup ...')
 NOHUP = re.compile(r"""(?:^|[;&|(`'"\n]|\$\()\s*(?:\w+=\S*\s+)*(?:sudo\s+|env\s+)*nohup(?:\s|$)""")
