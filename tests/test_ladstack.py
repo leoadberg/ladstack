@@ -59,6 +59,13 @@ class TimeoutHook(Base):
         self.hook("grant.py", {"session_id": "s", "prompt": "thanks, now the next thing"})
         self.assertEqual(self.limit_of("sleep 90"), 10)
 
+    def test_grant_survives_task_notification(self):
+        self.hook("grant.py", {"session_id": "s", "prompt": "long:10m"})
+        for note in ("<task-notification>\n<task-id>b1</task-id>\n<status>failed</status>\n</task-notification>",
+                     "<system-reminder>\n[SYSTEM NOTIFICATION - NOT USER INPUT]\nMonitor event"):
+            self.hook("grant.py", {"session_id": "s", "prompt": note})
+            self.assertEqual(self.limit_of("sleep 90"), 600)
+
     def test_grant_keeps_background(self):
         self.hook("grant.py", {"session_id": "s", "prompt": "long:2m"})
         self.assertTrue(self.wrap("sleep 90", run_in_background=True)["run_in_background"])
