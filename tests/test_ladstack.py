@@ -54,6 +54,14 @@ class TimeoutHook(Base):
         self.assertEqual(self.limit_of("sleep 90"), 600)
         self.assertEqual(self.limit_of("cd x && make; make test"), 600)
 
+    def test_grant_prefix_is_case_insensitive(self):
+        for prompt in ("Long:1m", "LONG:1m please run it", "please run it LoNg:1m"):
+            with self.subTest(prompt=prompt):
+                out = self.hook("grant.py", {"session_id": "s", "prompt": prompt})
+                self.assertEqual(out.returncode, 0, out.stderr)
+                self.assertIn(b"60s", out.stdout)
+                self.assertEqual(self.limit_of("sleep 90"), 60)
+
     def test_grant_ends_at_next_message(self):
         self.hook("grant.py", {"session_id": "s", "prompt": "long:10m"})
         self.hook("grant.py", {"session_id": "s", "prompt": "thanks, now the next thing"})

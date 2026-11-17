@@ -23,6 +23,8 @@ To allow longer, put this anywhere in your message:
 long:10m build the project
 ```
 
+The `long:` prefix is case-insensitive, so `Long:1m` also works.
+
 Until your next message, in that session, every command may run that long (`s`, `m`, `h`; at most 1 h) and may run in the
 background, including under `nohup`.
 
