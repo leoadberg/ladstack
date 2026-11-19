@@ -91,20 +91,37 @@ class TimeoutHook(Base):
             self.hook("grant.py", {"session_id": "s", "prompt": prompt})
             self.assertFalse((self.home / ".claude" / "grants" / "s.json").exists())
 
-    def test_nohup_blocked_without_grant(self):
-        for command in ("nohup ./pull.sh > log 2>&1 &", "cd x; nohup make", "FOO=1 nohup make", "sudo nohup make",
-                        "ssh ec2 'nohup ./job.sh &'", "(nohup make &)", "x && nohup\tmake"):
-            result = self.hook("timeout.py", {"session_id": "s", "tool_input": {"command": command}})
-            self.assertEqual(result.returncode, 2, command)
-            self.assertIn(b"nohup is blocked", result.stderr)
+    def blocked(self, command):
+        result = self.hook("timeout.py", {"session_id": "s", "tool_input": {"command": command}})
+        self.assertEqual(result.returncode, 2, command)
+        self.assertIn(b"is blocked", result.stderr)
 
-    def test_nohup_mentions_pass(self):
-        for command in ("man nohup", "grep -c nohup log", "echo nohupx", "ls nohup.out"):
+    def test_detaching_blocked(self):
+        for command in ("nohup ./pull.sh > log 2>&1 &", "cd x; nohup make", "FOO=1 nohup make", "sudo nohup make",
+                        "ssh ec2 'nohup ./job.sh &'", "(nohup make &)", "x && nohup\tmake", "setsid make",
+                        "systemd-run --user --unit=x make", "make & disown", "tmux new -d -s x make",
+                        "tmux new-session -d make", "screen -dmS x make", "ssh ec2 'setsid ./job.sh'"):
+            self.blocked(command)
+
+    def test_detaching_blocked_with_grant(self):
+        self.hook("grant.py", {"session_id": "s", "prompt": "long:10m"})
+        for command in ("nohup make &", "systemd-run --user make", "ssh ec2 './job.sh > log 2>&1 &'"):
+            self.blocked(command)
+
+    def test_background_inside_ssh_blocked(self):
+        for command in ("ssh ec2 './job.sh &'", "ssh ec2 'a & b'", "timeout 20 ssh -o X=1 ec2 \"until x; do y & done\"",
+                        "/usr/bin/ssh h 'job &>log &'"):
+            self.blocked(command)
+
+    def test_local_background_and_operators_pass(self):
+        for command in ("make &", "make & wait", "ssh ec2 'a && b'", "ssh ec2 'x 2>&1 | tail'", "ssh ec2 'x &>log'",
+                        "ssh ec2 uptime & wait", "a & ssh ec2 uptime", "ssh ec2 'x |& tail'"):
             self.assertEqual(self.limit_of(command), 10, command)
 
-    def test_nohup_allowed_with_grant(self):
-        self.hook("grant.py", {"session_id": "s", "prompt": "long:10m"})
-        self.assertEqual(self.limit_of("nohup make &"), 600)
+    def test_mentions_pass(self):
+        for command in ("man nohup", "grep -c nohup log", "echo nohupx", "ls nohup.out", "tmux ls",
+                        "systemctl --user status x", "grep setsid file"):
+            self.assertEqual(self.limit_of(command), 10, command)
 
     def test_hook_failure_blocks(self):
         path = self.home / ".claude" / "grants" / "s.json"
