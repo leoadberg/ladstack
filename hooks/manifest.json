@@ -1,5 +1,5 @@
 {
-  "env": {"BASH_MAX_TIMEOUT_MS": "3700000"},
+  "env": {"BASH_MAX_TIMEOUT_MS": "86410000"},
   "hooks": [
     {"event": "UserPromptSubmit", "script": "grant.py"},
     {"event": "PreToolUse", "matcher": "Bash", "script": "timeout.py"}

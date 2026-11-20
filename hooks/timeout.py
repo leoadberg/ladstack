@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""PreToolUse on Bash: run every command under a hard limit, 10 s unless the user granted more.
+"""PreToolUse on Bash: run every command under a hard limit, 10 s unless the user granted more (long:).
 
-A command that would let a job outlive the limit is refused, grant or not: one that detaches it from the
-process group (nohup, setsid, systemd-run, disown, a new tmux or screen session), or that backgrounds it
-inside an ssh command, where the group kill does not reach."""
+A command that would let a job outlive the limit is refused unless the user granted it (background:ok): one that
+detaches it from the process group (nohup, setsid, systemd-run, disown, a new tmux or screen session), or that
+backgrounds it inside an ssh command, where the group kill does not reach."""
 import json
 import re
 import shlex
@@ -21,7 +21,8 @@ SSH_END = {";", "&", "&&", "|", "||", "|&", ";;", "(", ")"}
 BLOCKED_MESSAGE = """{} is blocked: it lets a job outlive the time limit, which kills only the local process group
 and does not reach through ssh. Run the command in the foreground, and bound any remote command with its own
 timeout. If it cannot finish within the limit, profile it and make it faster, or ask the user to re-attempt with
-a long: grant in their message (for example long:10m). Do not look for another way to detach it."""
+a long: grant in their message (for example long:10m), or a background:ok grant for a job that must outlive its
+command. Do not look for another way to detach it."""
 
 
 def remote_background(command):
@@ -52,20 +53,21 @@ def refusal(command):
     return None
 
 
-def granted_limit(session_id):
+def grant(session_id):
     path = Path.home() / ".claude" / "grants" / "{}.json".format(session_id)
-    return json.loads(path.read_text())["limit"] if path.exists() else None
+    return json.loads(path.read_text()) if path.exists() else {"limit": None, "background": False}
 
 
 try:
     event = json.load(sys.stdin)
     tool_input = dict(event["tool_input"])
     command = tool_input["command"]
+    granted = grant(event["session_id"])
     blocked = refusal(command)
-    if blocked:
+    if blocked and not granted["background"]:
         print(BLOCKED_MESSAGE.format(blocked), file=sys.stderr)
         sys.exit(2)
-    limit = granted_limit(event["session_id"])
+    limit = granted["limit"]
     if limit is None:
         limit = DEFAULT_LIMIT
         tool_input.pop("run_in_background", None)

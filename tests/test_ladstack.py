@@ -82,9 +82,9 @@ class TimeoutHook(Base):
         self.hook("grant.py", {"session_id": "other", "prompt": "long:10m"})
         self.assertEqual(self.limit_of("sleep 90"), 10)
 
-    def test_grant_is_capped(self):
+    def test_grant_is_not_capped(self):
         self.hook("grant.py", {"session_id": "s", "prompt": "long:9h"})
-        self.assertEqual(self.limit_of("sleep 90"), 3600)
+        self.assertEqual(self.limit_of("sleep 90"), 9 * 3600)
 
     def test_no_grant_in_ordinary_message(self):
         for prompt in ("belong:10m", "long:10m:make", "long:10"):
@@ -107,6 +107,25 @@ class TimeoutHook(Base):
         self.hook("grant.py", {"session_id": "s", "prompt": "long:10m"})
         for command in ("nohup make &", "systemd-run --user make", "ssh ec2 './job.sh > log 2>&1 &'"):
             self.blocked(command)
+
+    def test_background_grant_allows_detaching(self):
+        for prompt in ("background:ok start it", "Background:OK", "long:10m background:ok"):
+            with self.subTest(prompt=prompt):
+                out = self.hook("grant.py", {"session_id": "s", "prompt": prompt})
+                self.assertIn(b"Background grant", out.stdout)
+                for command in ("nohup make &", "ssh bm0 'nohup ./job.sh > log 2>&1 & echo $! > RUN.pid'",
+                                "tmux new -d -s x make"):
+                    self.assertEqual(self.limit_of(command), 600 if "long" in prompt else 10, command)
+
+    def test_background_grant_ends_at_next_message(self):
+        self.hook("grant.py", {"session_id": "s", "prompt": "background:ok"})
+        self.hook("grant.py", {"session_id": "s", "prompt": "long:10m thanks"})
+        self.blocked("nohup make &")
+
+    def test_no_background_grant_in_ordinary_message(self):
+        for prompt in ("background:okay", "xbackground:ok", "background: ok"):
+            self.hook("grant.py", {"session_id": "s", "prompt": prompt})
+            self.assertFalse((self.home / ".claude" / "grants" / "s.json").exists())
 
     def test_background_inside_ssh_blocked(self):
         for command in ("ssh ec2 './job.sh &'", "ssh ec2 'a & b'", "timeout 20 ssh -o X=1 ec2 \"until x; do y & done\"",

@@ -15,7 +15,7 @@ afterwards.
 Every Bash command Claude runs is killed at 10 seconds, along with its process group, and Claude is told how to clean up.
 The limit does not reach through ssh: put a `timeout` in the remote command too.
 
-A command that lets a job outlive the limit is refused, with or without a grant, here or inside an ssh command:
+A command that lets a job outlive the limit is refused unless you grant it (below), here or inside an ssh command:
 `nohup`, `setsid`, `systemd-run`, `disown`, a new `tmux` or `screen` session, and a lone `&` inside an ssh command,
 where killing the local ssh leaves the remote job running. A local `&` is fine: the job stays in the killed group.
 
@@ -27,8 +27,12 @@ long:10m build the project
 
 The `long:` prefix is case-insensitive, so `Long:1m` also works.
 
-Until your next message, in that session, every command may run that long (`s`, `m`, `h`; at most 1 h) and may run in the
+Until your next message, in that session, every command may run that long (`s`, `m`, `h`) and may run in the
 background.
+
+To let Claude start a job that outlives its command (a recrunch on another host, say), put `background:ok` anywhere in
+your message (case-insensitive). Until your next message, in that session, the detaching commands above are allowed.
+It combines with a `long:` grant.
 
 ## Adding a hook
 
