@@ -16,8 +16,7 @@ Every Bash command Claude runs is killed at 10 seconds, along with its process g
 The limit does not reach through ssh: put a `timeout` in the remote command too.
 
 A command that lets a job outlive the limit is refused unless you grant it (below), here or inside an ssh command:
-`nohup`, `setsid`, `systemd-run`, `disown`, a new `tmux` or `screen` session, and a lone `&` inside an ssh command,
-where killing the local ssh leaves the remote job running. A local `&` is fine: the job stays in the killed group.
+`nohup`, `setsid`, `systemd-run`, `disown`, or a new `tmux` or `screen` session. `&` is never refused.
 
 To allow longer, put this anywhere in your message:
 

@@ -105,7 +105,7 @@ class TimeoutHook(Base):
 
     def test_detaching_blocked_with_grant(self):
         self.hook("grant.py", {"session_id": "s", "prompt": "long:10m"})
-        for command in ("nohup make &", "systemd-run --user make", "ssh ec2 './job.sh > log 2>&1 &'"):
+        for command in ("nohup make &", "systemd-run --user make", "ssh ec2 'setsid ./job.sh'"):
             self.blocked(command)
 
     def test_background_grant_allows_detaching(self):
@@ -127,14 +127,10 @@ class TimeoutHook(Base):
             self.hook("grant.py", {"session_id": "s", "prompt": prompt})
             self.assertFalse((self.home / ".claude" / "grants" / "s.json").exists())
 
-    def test_background_inside_ssh_blocked(self):
-        for command in ("ssh ec2 './job.sh &'", "ssh ec2 'a & b'", "timeout 20 ssh -o X=1 ec2 \"until x; do y & done\"",
-                        "/usr/bin/ssh h 'job &>log &'"):
-            self.blocked(command)
-
-    def test_local_background_and_operators_pass(self):
+    def test_ampersand_passes(self):
         for command in ("make &", "make & wait", "ssh ec2 'a && b'", "ssh ec2 'x 2>&1 | tail'", "ssh ec2 'x &>log'",
-                        "ssh ec2 uptime & wait", "a & ssh ec2 uptime", "ssh ec2 'x |& tail'"):
+                        "ssh ec2 uptime & wait", "a & ssh ec2 uptime", "ssh ec2 'x |& tail'", "ssh ec2 './job.sh &'",
+                        "ssh ec2 'a & b'", "fn f(&self) -> &str { &self.s }", "cat > src/ssh.rs <<'EOF'\nlet x = &y;\nEOF"):
             self.assertEqual(self.limit_of(command), 10, command)
 
     def test_mentions_pass(self):

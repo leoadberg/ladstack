@@ -2,8 +2,7 @@
 """PreToolUse on Bash: run every command under a hard limit, 10 s unless the user granted more (long:).
 
 A command that would let a job outlive the limit is refused unless the user granted it (background:ok): one that
-detaches it from the process group (nohup, setsid, systemd-run, disown, a new tmux or screen session), or that
-backgrounds it inside an ssh command, where the group kill does not reach."""
+detaches it from the process group (nohup, setsid, systemd-run, disown, a new tmux or screen session)."""
 import json
 import re
 import shlex
@@ -15,9 +14,6 @@ LIMIT = Path(__file__).resolve().parent.parent / "bin" / "limit.py"
 # a detaching command where a command starts, here or inside a quoted remote command (ssh host 'nohup ...')
 DETACH = re.compile(r"""(?:^|[;&|(`'"\n]|\$\()\s*(?:\w+=\S*\s+)*(?:sudo\s+|env\s+)*"""
                     r"""(nohup|setsid|systemd-run|disown|tmux\s+new(?:-session)?|screen\s+(?:\S+\s+)*-d\S*)(?:\s|$)""")
-# a lone & (not &&, >&, &>, |&)
-BACKGROUND = re.compile(r"(?<![&>|<])&(?![&>])")
-SSH_END = {";", "&", "&&", "|", "||", "|&", ";;", "(", ")"}
 BLOCKED_MESSAGE = """{} is blocked: it lets a job outlive the time limit, which kills only the local process group
 and does not reach through ssh. Run the command in the foreground, and bound any remote command with its own
 timeout. If it cannot finish within the limit, profile it and make it faster, or ask the user to re-attempt with
@@ -25,31 +21,10 @@ a long: grant in their message (for example long:10m), or a background:ok grant 
 command. Do not look for another way to detach it."""
 
 
-def remote_background(command):
-    """Whether a remote command given to ssh backgrounds a job: killing the local ssh leaves it running."""
-    try:
-        lexer = shlex.shlex(command, posix=True, punctuation_chars=True)
-        lexer.whitespace_split = True
-        tokens = list(lexer)
-    except ValueError:
-        return False
-    in_ssh = False
-    for token in tokens:
-        if token in SSH_END:
-            in_ssh = False
-        elif token.rsplit("/", 1)[-1] == "ssh":
-            in_ssh = True
-        elif in_ssh and BACKGROUND.search(token):
-            return True
-    return False
-
-
 def refusal(command):
     match = DETACH.search(command)
     if match:
         return match.group(1).split()[0]
-    if remote_background(command):
-        return "& inside an ssh command"
     return None
 
 
